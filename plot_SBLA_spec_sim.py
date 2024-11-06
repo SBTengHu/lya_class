@@ -20,7 +20,6 @@ embed()
 im1=axes[1].scatter(f['ray_pos'][:,0],f['ray_pos'][:,1],s=10,c=f['EW_HI_1215'],cmap='binary',rasterized=True,vmax=25)
 axes[1].plot(f['ray_pos'][:,0][ix],f['ray_pos'][:,1][ix],'b*')
 
-
 cax = axes[2]
 plt.colorbar(im1, cax=cax)
 cax.set_ylabel(r'EW$_{Ly\alpha}$ [$\AA$]',fontsize=15)
