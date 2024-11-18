@@ -312,32 +312,32 @@ def wave_rebin(bins, wavelength):
 
 # Importing Subhalo data
 
-f = ascii.read('/data/forest/dsantos/DylanSims/Data/z2/SubhaloInfo.csv',format='csv')
+#f = ascii.read('/data/forest/dsantos/DylanSims/Data/z2/SubhaloInfo.csv',format='csv')
 
-subhalo_posx = np.array(f['Subhalo_PosX']) # Subhalo positions in x
-subhalo_posy = np.array(f['Subhalo_PosY']) # Subhalo positions in y
-subhalo_posz = np.array(f['Subhalo_PosZ']) # Subhalo positions in z
-subhalo_mass = np.array(f['Subhalo_Mass']) # Subhalo mass. To convert to physical mass you have to multiply by 1e10/H0
-subhalo_radhm = np.array(f['Subhalo_HalfMassRadius']) # Subhalo half mass radius. Twice this is the virial radius.
-subhalo_z = np.array(f['Subhalo_GasMetal']) # Subhalo gas metallicity
-subhalo_vz = np.array(f['Subhalo_PVZ']) # Subhalo peculiar velocity in z axis (km/s)
-subhalo_vdisp = np.array(f['Subhalo_VDispersion']) # Subhalo velocity dispersion (km/s)
-subhalo_vmax = np.array(f['Subhalo_VMax']) # Subhalo maximum velocity of the rotation curve (km/s)
-
-
+#subhalo_posx = np.array(f['Subhalo_PosX']) # Subhalo positions in x
+#subhalo_posy = np.array(f['Subhalo_PosY']) # Subhalo positions in y
+#subhalo_posz = np.array(f['Subhalo_PosZ']) # Subhalo positions in z
+#subhalo_mass = np.array(f['Subhalo_Mass']) # Subhalo mass. To convert to physical mass you have to multiply by 1e10/H0
+#subhalo_radhm = np.array(f['Subhalo_HalfMassRadius']) # Subhalo half mass radius. Twice this is the virial radius.
+#subhalo_z = np.array(f['Subhalo_GasMetal']) # Subhalo gas metallicity
+#subhalo_vz = np.array(f['Subhalo_PVZ']) # Subhalo peculiar velocity in z axis (km/s)
+#subhalo_vdisp = np.array(f['Subhalo_VDispersion']) # Subhalo velocity dispersion (km/s)
+#ubhalo_vmax = np.array(f['Subhalo_VMax']) # Subhalo maximum velocity of the rotation curve (km/s)
 
 
-f = ascii.read('/data/forest/dsantos/DylanSims/Data/z2/GroupInfo.csv',format='csv')
 
-group_posx = np.array(f['Group_CMX']) # Group positions in x
-group_posy = np.array(f['Group_CMY']) # Group positions in y
-group_posz = np.array(f['Group_CMZ']) # Group positions in z
-group_mass = np.array(f['Group_Mass']) # Group Mass
-group_z = np.array(f['Group_Metal']) # Group Metallicity
-group_vrad = np.array(f['Group_RCrit200']) # Group virial radius
-group_subhaloid = np.array(f['Subhalo_ID']) # Central Subhalo ID
 
-mass_filter = (np.log10(group_mass*1e10/0.6774) > 9.05)
+#f = ascii.read('/data/forest/dsantos/DylanSims/Data/z2/GroupInfo.csv',format='csv')
+
+#group_posx = np.array(f['Group_CMX']) # Group positions in x
+#group_posy = np.array(f['Group_CMY']) # Group positions in y
+#group_posz = np.array(f['Group_CMZ']) # Group positions in z
+#group_mass = np.array(f['Group_Mass']) # Group Mass
+#group_z = np.array(f['Group_Metal']) # Group Metallicity
+#group_vrad = np.array(f['Group_RCrit200']) # Group virial radius
+#group_subhaloid = np.array(f['Subhalo_ID']) # Central Subhalo ID
+
+#mass_filter = (np.log10(group_mass*1e10/0.6774) > 9.05)
 
 
 f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/SDSS/Random/spectra_TNG50-1_z2.0_n2000d2-rndfullbox_SDSS-BOSS_HI_combined.hdf5', 'r')
@@ -521,7 +521,8 @@ fig.tight_layout()
 plt.subplots_adjust(wspace=0.15, hspace=0)
 plt.savefig('z2_plots/AllHaloBins.pdf', bbox_inches='tight', dpi=300)
 plt.savefig('z2_plots/AllHaloBins.png', bbox_inches='tight', dpi=300)
-plt.show()
+#plt.show()
+embed()
 
 bins025_vmax_vrad = mass_bin(mass_in, mass_f, group_mass, sbla025_vmax_vrad['Halo Index'])
 bins015_vmax_vrad = mass_bin(mass_in, mass_f, group_mass,  sbla015_vmax_vrad['Halo Index'])
@@ -574,7 +575,7 @@ fig.tight_layout()
 plt.subplots_adjust(wspace=0, hspace=0)
 plt.savefig('z2_plots/PSBLA_Global_Random.pdf', bbox_inches='tight', dpi=300)
 plt.savefig('z2_plots/PSBLA_Global_Random.png', bbox_inches='tight', dpi=300)
-plt.show()
+#plt.show()
 
 ig, axes = plt.subplots(nrows=2, ncols=3, figsize=(12,6),sharey='all',sharex='all')
 
@@ -663,4 +664,4 @@ fig.tight_layout()
 plt.subplots_adjust(wspace=0.02, hspace=0.02)
 plt.savefig('z2_plots/PSBLA_Bins_Rand.pdf', bbox_inches='tight', dpi=300)
 plt.savefig('z2_plots/PSBLA_Bins_Rand.png', bbox_inches='tight', dpi=300)
-plt.show()
+#plt.show()
