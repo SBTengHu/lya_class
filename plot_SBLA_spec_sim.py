@@ -4,7 +4,7 @@ import numpy as np
 from IPython import embed
 
 f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Uniform/spectra_TNG50-1_z2.0_n1000d2-fullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
-wavelength = np.array(f['wave'])
+wavelength_all = np.array(f['wave'])
 
 gridspec = {'width_ratios': [1, 0.03,1, 0.03]}
 
@@ -14,6 +14,7 @@ ix = 781436
 #make a slice of the simulation box
 
 y_ind = np.where((f['ray_pos'][:,1]==f['ray_pos'][:,1][ix]))[0]
+wl_ind = np.where((wavelength_all<1233*(1+2)) & (wavelength_all>1215.67*(1+2)))[0]
 #embed()
 #make the intensity plot for the slice
 flux_map = f['flux'][y_ind].astype(np.float16)
@@ -36,9 +37,9 @@ axes[0].set_ylim(0,35000)
 
 #make the intensity plot for the slice
 
-x_grid = np.sort(np.unique(f['ray_pos'][:,0]))[0:50]
-z_grid = wavelength[int(len(wavelength)/2):]
-map0=np.array(np.vstack(flux_map))[0:len(x_grid)-1, int(len(wavelength)/2):-1].T
+x_grid = np.sort(np.unique(f['ray_pos'][:,0]))
+z_grid = wavelength_all[wl_ind]
+map0=np.array(np.vstack(flux_map))[0:len(x_grid)-1, wl_ind[0]:wl_ind[-1]].T
 
 #embed()
 
