@@ -310,7 +310,60 @@ def wave_rebin(bins, wavelength):
 
     return wavelength_rebin, deltav
 
-# Importing Subhalo data
+
+def hierarchical_sbla_maker(sblaprop_file, directory, flim):
+    """
+    Generates a hierarchical SBLA table by identifying non-eaten SBLAs based on their spectral binning.
+
+    Parameters:
+    -----------
+    sblaprop_file : FITS_rec
+        Input FITS file containing SBLA properties.
+    directory: str
+        String that incorporates directory to save file in
+    flim : str
+        String suffix that dictates flux limit
+
+    Returns:
+    --------
+    None. Writes the hierarchical SBLA table to a .fits file in the wanted directory
+    """
+    idx_saver = []
+
+    # Pre-extract other columns
+    index_of_spectrum = sblaprop_file['Index of Spectrum']
+    central_wavelength = sblaprop_file['SBLA Central Wavelength [A]']
+    min_wavelength = sblaprop_file['SBLA Minimum Wavelength [A]']
+    max_wavelength = sblaprop_file['SBLA Maximum Wavelength [A]']
+
+    ispec = np.array(list(set(index_of_spectrum)))
+
+    for i in trange(len(ispec)):
+        current_spectrum = ispec[i]
+
+        # Find indices for the current spectrum
+        finder = np.where(index_of_spectrum == current_spectrum)[0]
+        survive = np.flip(finder)
+
+        k = False
+        counter = 0
+        while k == False:
+            condition = np.where((central_wavelength[survive] < min_wavelength[survive[counter]]) |
+                    (central_wavelength[survive] > max_wavelength[survive[counter]]) |
+                    (central_wavelength[survive] == central_wavelength[survive[counter]]))
+            survive = survive[condition]
+            counter += 1
+            if counter >= len(survive) - 1:
+                k = True
+
+            # Saving all indices with non-eaten SBLAs
+            survive = np.flip(survive)
+            idx_saver.extend([j for j in survive])
+
+            # Creating hierarchical SBLA Table
+            htable = sblaprop_file[np.sort(idx_saver)]
+            htable.write(directory + 'SBLAProps_Hierarchical' + flim + '.fits', overwrite=True)
+            # Importing Subhalo data
 
 #f = ascii.read('/data/forest/dsantos/DylanSims/Data/z2/SubhaloInfo.csv',format='csv')
 
