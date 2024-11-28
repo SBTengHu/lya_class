@@ -4,7 +4,7 @@ from IPython import embed
 from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits, ascii
 import h5py
-from scipy.interpolate import interp2d
+from scipy.interpolate import interp2d,RegularGridInterpolator
 
 #cosmological parameters
 c = 3e5  # km/s
@@ -18,6 +18,10 @@ Lbox = 35  # Mpc/h
 ncell = 1000#len(np.sort(np.unique(f['ray_pos'][:,0])))
 cosmo = FlatLambdaCDM(H0=100.0 * h, Om0=OmegaM, Ob0=OmegaB)
 hubblez = cosmo.H(z_0)
+
+dz = ((Lbox / h / ncell) * hubblez / c).value # dz in redshift per cell
+dWL = (dz * lya)  # wl in AA per cell
+dl = Lbox / ncell  # dist per cell for raw skewer in Mpc/h
 
 #for plot
 gridspec = {'width_ratios': [1, 0.025]}
@@ -52,26 +56,6 @@ y_pos = subhalo_posy[mass_filter_0][0]
 
 x_grid = np.linspace(0,35000,3*ncell)
 
-#condition if for all subhalos in the plane of the slice
-condition1 = (subhalo_posy - y_pos)**2  <= (2*subhalo_radhm)**2
-condition2 = (np.log10(subhalo_mass*1e10/0.6774) > 9.05)
-
-cond_all = condition1 & condition2
-
-#the radius projected in x-axis
-subhalo_rx= np.zeros(len(subhalo_posx[cond_all]))
-subhalo_rx = np.sqrt(4*subhalo_radhm[cond_all]**2 - (subhalo_posy[cond_all] - y_pos)**2)
-subhalo_dwl = subhalo_vdisp[cond_all]/c * lya
-
-#the width of slice in kpc/h
-dy=35
-
-y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
-wl_ind = np.where((wavelength_all<1233*(1+2)) & (wavelength_all>1215.67*(1+2)))[0]
-
-flux_map_allwl = f['flux'][y_ind][wl_ind]
-
-
 """
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
 im1=axes[0].scatter(f['ray_pos'][:,0],f['ray_pos'][:,1],s=10,c=f['EW_HI_1215'],cmap='binary',rasterized=True,vmax=25)
@@ -96,40 +80,60 @@ plt.savefig(savename, dpi=100)
 plt.close()
 """
 
-dz = ((Lbox / h / ncell) * hubblez / c).value # dz in redshift per cell
-dWL = (dz * lya)  # wl in AA per cell
-dl = Lbox / ncell  # dist per cell for raw skewer in Mpc/h
-
-
-mass_filter = (np.log10(group_mass*1e10/0.6774) > 9.05)
 
 #condition if for all subhalos in the plane of the slice
-condition1 = (group_posy - y_pos)**2  <= group_vrad**2
-condition2 = mass_filter
+condition1 = (subhalo_posy - y_pos)**2  <= (2*subhalo_radhm)**2
+condition2 = (np.log10(subhalo_mass*1e10/0.6774) > 9.05)
 
-cond_all = condition1 #& condition2
+cond_all = condition1 & condition2
 
+#the radius projected in x-axis
+subhalo_rx= np.zeros(len(subhalo_posx[cond_all]))
+subhalo_rx = np.sqrt(4*subhalo_radhm[cond_all]**2 - (subhalo_posy[cond_all] - y_pos)**2)
+subhalo_dwl = subhalo_vdisp[cond_all]/c * lya
 
-#convert from z position to wavelength
-z_halo = group_posz/(dl*1000*h)  * dz+ (2.0)
-wl_halo = (1+z_halo )* lya
-#wl_halo = (1+z_halo + subhalo_vz/c )* lya
-#wl_halo_min = wl_halo - subhalo_vdisp/c * lya
-#wl_halo_max = wl_halo + subhalo_vdisp/c * lya
+#the width of slice in kpc/h
+dy=35
+
+y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
+wl_ind = np.where((wavelength_all<1233*(1+2)) & (wavelength_all>1215.67*(1+2)))[0]
 
 #make the intensity plot for the slice
+flux_2d_fullwl= f['flux'][y_ind]
+flux_map = flux_2d_fullwl[:,wl_ind]
 
-x_grid = np.sort(np.unique(f['ray_pos'][:,0]))
-z_grid = wavelength_all[wl_ind]
-map0=np.array(np.vstack(flux_map))[0:len(x_grid)-1, wl_ind[0]:wl_ind[-1]].T
+x_grid = np.linspace(0,35000,3*ncell)
+
+ind_unique = np.unique(f['ray_pos'][:,0][y_ind], return_index=True)
+x_pos_unique = f['ray_pos'][:,0][ind_unique[1]]
+
+flux_map_unique = flux_map[ind_unique[1]]
+
+ray_z = wavelength_all[wl_ind]
+
+ind_sort_unique = np.argsort(x_pos_unique)
+x_unique_sort = x_pos_unique[ind_sort_unique]
+
+flux_map_unique_sort = flux_map_unique[ind_sort_unique]
+map0=np.array(np.vstack(flux_map_unique))
+
+#interpolate the color map to finer grid
+f_map = RegularGridInterpolator((x_unique_sort, ray_z), map0, method='cubic')
+
+#convert from z position to wavelength
+z_halo = subhalo_posy/(dl*1000*h)  * dz+ (2.0)
+#wl_halo = (1+z_halo )* lya
+wl_halo = (1+z_halo + subhalo_vz/c )* lya
 
 #embed()
 
 fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
 
-c1 = axes2[0].pcolormesh(x_grid,z_grid , map0, cmap='Blues', vmin=0., vmax=1.)
+c1 = axes2[0].pcolormesh(x_grid,ray_z , map0, cmap='Blues', vmin=0., vmax=1.)
+#axes2[0].scatter(subhalo_posy[cond_all],wl_halo[cond_all], marker='*', s=2, c='red')
+axes2[0].errorbar(subhalo_posy[cond_all],wl_halo[cond_all],
+                  xerr=subhalo_rx,yerr=subhalo_dwl, fmt='o', linewidth=2, capsize=2, c='red')
 
-axes2[0].scatter(group_posx[cond_all],wl_halo[cond_all], marker='*', s=2, c='red')
 
 axes2[0].set_title('flux')
 # set the limits of the plot to the limits of the data
@@ -138,7 +142,7 @@ plt.colorbar(c1, cax=axes2[1])
 axes2[0].set_ylabel(r'wavelength',fontsize=14)
 axes2[0].set_xlabel(r'X [ckpc/h]',fontsize=14)
 axes2[0].set_xlim(x_grid[0],x_grid[-1])
-axes2[0].set_ylim(z_grid[0],z_grid[-1])
+axes2[0].set_ylim(ray_z[0],ray_z[-1])
 
 #embed()
 
