@@ -19,6 +19,9 @@ ncell = 1000#len(np.sort(np.unique(f['ray_pos'][:,0])))
 cosmo = FlatLambdaCDM(H0=100.0 * h, Om0=OmegaM, Ob0=OmegaB)
 hubblez = cosmo.H(z_0)
 
+#for plot
+gridspec = {'width_ratios': [1, 0.025]}
+
 f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Random/spectra_TNG50-1_z2.0_n2000d2-rndfullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
 #f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Uniform/spectra_TNG50-1_z2.0_n1000d2-fullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
 wavelength_all = np.array(f['wave'])
@@ -60,15 +63,14 @@ subhalo_rx= np.zeros(len(subhalo_posx[cond_all]))
 subhalo_rx = np.sqrt(4*subhalo_radhm[cond_all]**2 - (subhalo_posy[cond_all] - y_pos)**2)
 subhalo_dwl = subhalo_vdisp[cond_all]/c * lya
 
-gridspec = {'width_ratios': [1, 0.05]}
+#the width of slice in kpc/h
+dy=35
 
-#make a slice of the simulation box
-y_ind = np.where((f['ray_pos'][:,1]==f['ray_pos'][:,1][ix]))[0]
+y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
 wl_ind = np.where((wavelength_all<1233*(1+2)) & (wavelength_all>1215.67*(1+2)))[0]
-y_pos = f['ray_pos'][:,1][ix]
-#embed()
-#make the intensity plot for the slice
-flux_map = f['flux'][y_ind].astype(np.float16)
+
+flux_map_allwl = f['flux'][y_ind][wl_ind]
+
 
 """
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
