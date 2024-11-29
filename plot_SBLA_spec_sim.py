@@ -51,10 +51,6 @@ ubhalo_vmax = np.array(f1['Subhalo_VMax']) # Subhalo maximum velocity of the rot
 #group_vrad = np.array(f['Group_RCrit200']) # Group virial radius
 #group_subhaloid = np.array(f['Subhalo_ID']) # Central Subhalo ID
 
-mass_filter_0 = (np.log10(subhalo_mass*1e10/0.6774) > 12.45) & (np.log10(subhalo_mass*1e10/0.6774) < 12.55)
-y_pos = subhalo_posy[mass_filter_0][0]
-
-x_grid = np.linspace(0,35000,3*ncell)
 
 """
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
@@ -79,9 +75,11 @@ savename ='sim_cut.pdf'
 plt.savefig(savename, dpi=100)
 plt.close()
 """
-
+mass_filter_0 = (np.log10(subhalo_mass*1e10/0.6774) > 12.45) & (np.log10(subhalo_mass*1e10/0.6774) < 12.55)
+y_pos = subhalo_posy[mass_filter_0][0]
 
 #condition if for all subhalos in the plane of the slice
+#condition0 = (subhalo_posy - y_pos)**2  <= (35/2)**2
 condition1 = (subhalo_posy - y_pos)**2  <= (2*subhalo_radhm)**2
 condition2 = (np.log10(subhalo_mass*1e10/0.6774) > 9.05)
 
@@ -98,14 +96,13 @@ dy=35
 y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
 wl_ind = np.where((wavelength_all<1233*(1+2)) & (wavelength_all>1215.67*(1+2)))[0]
 
+
 #make the intensity plot for the slice
 flux_2d_fullwl= f['flux'][y_ind]
 flux_map = flux_2d_fullwl[:,wl_ind]
 
-x_grid = np.linspace(0,35000,3*ncell)
-
 ind_unique = np.unique(f['ray_pos'][:,0][y_ind], return_index=True)
-x_pos_unique = f['ray_pos'][:,0][ind_unique[1]]
+x_pos_unique = f['ray_pos'][:,0][y_ind][ind_unique[1]]
 
 flux_map_unique = flux_map[ind_unique[1]]
 
@@ -120,20 +117,23 @@ map0=np.array(np.vstack(flux_map_unique))
 #interpolate the color map to finer grid
 f_map = RegularGridInterpolator((x_unique_sort, ray_z), map0, method='cubic')
 
+x_grid = np.linspace(x_unique_sort[0],x_unique_sort[-1],10*ncell)
+X_plot, Y_plot = np.meshgrid(x_grid[0:-1], ray_z[0:-1], indexing='ij')
+
+map_plot = f_map((X_plot,Y_plot))
+
 #convert from z position to wavelength
-z_halo = subhalo_posy/(dl*1000*h)  * dz+ (2.0)
+z_halo = subhalo_posz/(dl*1000)  * dz+ (2.0)
 #wl_halo = (1+z_halo )* lya
 wl_halo = (1+z_halo + subhalo_vz/c )* lya
 
 #embed()
-
 fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
 
-c1 = axes2[0].pcolormesh(x_grid,ray_z , map0, cmap='Blues', vmin=0., vmax=1.)
-#axes2[0].scatter(subhalo_posy[cond_all],wl_halo[cond_all], marker='*', s=2, c='red')
-axes2[0].errorbar(subhalo_posy[cond_all],wl_halo[cond_all],
-                  xerr=subhalo_rx,yerr=subhalo_dwl, fmt='o', linewidth=2, capsize=2, c='red')
-
+c1 = axes2[0].pcolormesh(x_grid,ray_z , map_plot.T, cmap='Blues', vmin=0., vmax=1.)
+axes2[0].scatter(subhalo_posx[condition1],wl_halo[condition1], marker='*', s=2, c='red')
+#axes2[0].errorbar(subhalo_posx[condition1],wl_halo[condition1],
+                  #xerr=subhalo_rx,yerr=subhalo_dwl, fmt='o', linewidth=2, capsize=2, c='red')
 
 axes2[0].set_title('flux')
 # set the limits of the plot to the limits of the data
@@ -149,7 +149,6 @@ axes2[0].set_ylim(ray_z[0],ray_z[-1])
 fig2.tight_layout()
 #plt.subplots_adjust(wspace=0.1, hspace=0)
 plt.show()
-
 
 savename2 =('SBLA_flux_halos.pdf')
 plt.savefig(savename2, dpi=100)
