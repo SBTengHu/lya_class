@@ -6,6 +6,9 @@ from astropy.io import fits, ascii
 import h5py
 from scipy.interpolate import interp2d,RegularGridInterpolator
 from matplotlib.ticker import AutoMinorLocator,MaxNLocator
+import os
+import glob
+
 
 #cosmological parameters
 c = 3e5  # km/s
@@ -177,6 +180,34 @@ savename2 =('z2_flux_halos.pdf')
 plt.savefig(savename2, dpi=100)
 plt.close()
 
-halo_los_ind = np.where( ((f['ray_pos'][:,0]-halo_0_x)**2 + (f['ray_pos'][:,1]-y_pos)**2 <= halo_0_r**2) )[0]
+halo_0_los_arr = f['flux'][y_ind][x_ind_halo0_los]
 
+for x in x_ind_halo0_los:
+    flux = f['flux'][y_ind][x]
+    wave = wavelength_all
 
+    fig = plt.figure(figsize=(8, 4))
+    ax = fig.add_subplot(111)
+
+    ax.plot(wave, flux,
+            color='0.5', drawstyle='steps', zorder=1, lw=0.5)
+
+    ax.axvspan(wl_halo_0_min, wl_halo_0_max, alpha=0.5, color='red')
+
+    ax.set_ylabel('Transmission')
+    ax.set_xlabel('$\\lambda / \\AA$')
+
+    ax.set_ylim(-0.1, 1.25)
+    ax.set_xlim(ray_z[0], ray_z[-1])
+
+    plt.savefig('halo_LOS_spec' + str(x) + '_plot_thinslice.pdf')
+    plt.close()
+
+fitpdf = sorted([os.path.basename(x) for x in glob.glob('*LOS*.pdf')])
+from PyPDF2 import PdfMerger
+merger = PdfMerger()
+for pdf in fitpdf:
+    merger.append(pdf)
+    os.remove(pdf)
+merger.write('LOS_halo_z2_m12.pdf')
+merger.close()
