@@ -133,15 +133,17 @@ halo_0_x = subhalo_posx[mass_filter_0][0]
 wl_halo_0_wl = (subhalo_posz[mass_filter_0][0](dl*1000)  * dz+ (z_0) + subhalo_vz[mass_filter_0][0]/c +1 )* lya
 
 #embed()
-fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
+gridspec = {'width_ratios': [1, 0.025]}
+fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(20,20),gridspec_kw=gridspec)
 
 c1 = axes2[0].pcolormesh(x_grid,ray_z , map_plot.T, cmap='Blues', vmin=0., vmax=1.)
-axes2[0].scatter(subhalo_posx[condition1],wl_halo[condition1], marker='*', s=2, c='red')
-#axes2[0].errorbar(subhalo_posx[condition1],wl_halo[condition1],
-                  #xerr=subhalo_rx,yerr=subhalo_dwl, fmt='o', linewidth=2, capsize=2, c='red')
+
+#axes2[0].scatter(subhalo_posx[cond_all],wl_halo[cond_all], marker='*', s=2, c='red')
+axes2[0].errorbar(subhalo_posx[cond_all],wl_halo[cond_all],
+                  xerr=subhalo_rx,yerr=subhalo_dwl, fmt='.', linewidth=1, capsize=1, c='red')
 
 #plot mass=12 halo
-axes2[0].scatter(np.atleast_1d(halo_0_x),np.atleast_1d(wl_halo_0_wl), marker='*', s=2, c='yellow')
+axes2[0].scatter(np.atleast_1d(halo_0_x),np.atleast_1d(wl_halo_0_wl), marker='o', s=2, c='orange')
 
 axes2[0].set_title('flux')
 # set the limits of the plot to the limits of the data
@@ -158,6 +160,6 @@ fig2.tight_layout()
 #plt.subplots_adjust(wspace=0.1, hspace=0)
 plt.show()
 
-savename2 =('SBLA_flux_halos.pdf')
+savename2 =('z2_flux_halos.pdf')
 plt.savefig(savename2, dpi=100)
 plt.close()
