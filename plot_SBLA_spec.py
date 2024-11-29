@@ -18,7 +18,7 @@ from IPython import embed
 f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Uniform/spectra_TNG50-1_z2.0_n1000d2-fullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
 wavelength = np.array(f['wave'])
 
-gridspec = {'width_ratios': [1, 1, 0.05]}
+gridspec = {'width_ratios': [1, 0.05]}
 ix = 781436
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12,5),gridspec_kw=gridspec)
@@ -48,3 +48,26 @@ axes[0].set_ylabel(r'Normalised Flux', fontsize=15)
 fig.tight_layout()
 plt.subplots_adjust(wspace=0.1, hspace=0)
 plt.show()
+
+halo_0_los_arr = f['flux'][x_ind_halo0_los]
+
+for x in x_ind_halo0_los[0:3]:
+    flux = f['flux'][x]
+    wave = wavelength_all
+
+    fig = plt.figure(figsize=(8, 4))
+    ax = fig.add_subplot(111)
+
+    ax.plot(wave, flux,
+            color='0.5', drawstyle='steps', zorder=1, lw=0.5)
+
+    ax.axvspan(wl_halo_0_min, wl_halo_0_max, alpha=0.5, color='red')
+
+    ax.set_ylabel('Transmission')
+    ax.set_xlabel('$\\lambda / \\AA$')
+
+    ax.set_ylim(-0.1, 1.25)
+    ax.set_xlim(ray_z[0], ray_z[-1])
+
+    plt.savefig('halo_los_spec' + str(x) + '_plot.pdf')
+    plt.close()
