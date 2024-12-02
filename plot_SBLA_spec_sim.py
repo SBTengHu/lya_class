@@ -44,7 +44,7 @@ subhalo_radhm = np.array(f1['Subhalo_HalfMassRadius']) # Subhalo half mass radiu
 subhalo_z = np.array(f1['Subhalo_GasMetal']) # Subhalo gas metallicity
 subhalo_vz = np.array(f1['Subhalo_PVZ']) # Subhalo peculiar velocity in z axis (km/s)
 subhalo_vdisp = np.array(f1['Subhalo_VDispersion']) # Subhalo velocity dispersion (km/s)
-ubhalo_vmax = np.array(f1['Subhalo_VMax']) # Subhalo maximum velocity of the rotation curve (km/s)
+subhalo_vmax = np.array(f1['Subhalo_VMax']) # Subhalo maximum velocity of the rotation curve (km/s)
 
 #f = ascii.read('/data/forest/dsantos/DylanSims/Data/z2/GroupInfo.csv',format='csv')
 #group_posx = np.array(f['Group_CMX']) # Group positions in x
@@ -93,13 +93,16 @@ cond_all = condition1 & condition2
 #the radius projected in x-axis
 subhalo_rx= np.zeros(len(subhalo_posx[cond_all]))
 subhalo_rx = np.sqrt(4*subhalo_radhm[cond_all]**2 - (subhalo_posy[cond_all] - y_pos)**2)
-subhalo_dwl = subhalo_vdisp[cond_all]/c * lya
+subhalo_dwl = subhalo_vmax[cond_all]/c * lya
 
 #the width of slice in kpc/h
 dy=35
 
+wl_min = (1+z_0)*lya
+wl_max = (1+z_0 + 1000*dz)*lya
+
 y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
-wl_ind = np.where((wavelength_all<1233*(1+2)) & (wavelength_all>1215.67*(1+2)))[0]
+wl_ind = np.where((wavelength_all<wl_max) & (wavelength_all>wl_min))[0]
 
 #make the intensity plot for the slice
 flux_2d_fullwl= f['flux'][y_ind]
@@ -140,8 +143,8 @@ x_ind_halo0_los = \
 np.where((f['ray_pos'][y_ind][:, 0] >= halo_0_x - halo_0_r) & (f['ray_pos'][y_ind][:, 0] <= halo_0_x + halo_0_r))[0]
 x_halo0_los = f['ray_pos'][y_ind][:, 0][x_ind_halo0_los]
 
-wl_halo_0_max = wl_halo_0 + subhalo_vdisp[mass_filter_0][0]/c * lya
-wl_halo_0_min = wl_halo_0 - subhalo_vdisp[mass_filter_0][0]/c * lya
+wl_halo_0_max = wl_halo_0 + subhalo_vmax[mass_filter_0][0]/c * lya
+wl_halo_0_min = wl_halo_0 - subhalo_vmax[mass_filter_0][0]/c * lya
 
 #embed()
 gridspec = {'width_ratios': [1, 0.025]}
@@ -180,10 +183,12 @@ savename2 =('z2_flux_halos.pdf')
 plt.savefig(savename2, dpi=100)
 plt.close()
 
-halo_0_los_arr = f['flux'][y_ind][x_ind_halo0_los]
 
-for x in x_ind_halo0_los:
-    flux = f['flux'][y_ind][x]
+x_pos_sort_ind= np.argsort(f['x_pos'][y_ind][x_ind_halo0_los])
+halo_0_los_sort_arr = f['flux'][y_ind][x_pos_sort_ind]
+
+for x in len(x_ind_halo0_los)[0:10]:
+    flux = halo_0_los_sort_arr[x]
     wave = wavelength_all
 
     fig = plt.figure(figsize=(8, 4))
