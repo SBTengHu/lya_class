@@ -8,7 +8,7 @@ from scipy.interpolate import interp2d,RegularGridInterpolator
 from matplotlib.ticker import AutoMinorLocator,MaxNLocator
 import os
 import glob
-
+import astropy.table as tab
 
 #cosmological parameters
 c = 3e5  # km/s
@@ -26,9 +26,6 @@ hubblez = cosmo.H(z_0)
 dz = ((Lbox / h / ncell) * hubblez / c).value # dz in redshift per cell
 dWL = (dz * lya)  # wl in AA per cell
 dl = Lbox / ncell  # dist per cell for raw skewer in Mpc/h
-
-#for plot
-gridspec = {'width_ratios': [1, 0.025]}
 
 f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Random/spectra_TNG50-1_z2.0_n2000d2-rndfullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
 #f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Uniform/spectra_TNG50-1_z2.0_n1000d2-fullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
@@ -55,6 +52,13 @@ subhalo_vmax = np.array(f1['Subhalo_VMax']) # Subhalo maximum velocity of the ro
 #group_vrad = np.array(f['Group_RCrit200']) # Group virial radius
 #group_subhaloid = np.array(f['Subhalo_ID']) # Central Subhalo ID
 
+DLA_list ='/data/forest/dsantos/DylanSims/Data/z2/KECK/Random/Old_SpecBins/DLA_SBLA_HighRes/DLA_AllBins_Index.fits'
+f_DLA=tab.Table.read(DLA_list, hdu=1)
+
+#mark DLA index
+all_indices = np.arange(len(f['flux']))
+not_DLA = np.isin(all_indices, f_DLA[0][0], invert=True)
+ind_not_DLA = all_indices[not_DLA]
 
 """
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
@@ -79,9 +83,44 @@ savename ='sim_cut.pdf'
 plt.savefig(savename, dpi=100)
 plt.close()
 """
+#convert from z position to wavelength
+z_halo = subhalo_posz/(dl*1000)  * dz+ (z_0)
+#wl_halo = (1+z_halo )* lya
+wl_halo = (1+z_halo + subhalo_vz/c )* lya
+wl_halo_v0 = (1+z_halo )* lya
+
+# location of a mass=12 halo
 mass_filter_0 = (np.log10(subhalo_mass*1e10/0.6774) > 12.45) & (np.log10(subhalo_mass*1e10/0.6774) < 12.55)
-#y pos of halo_0
+
+halo_0_x = subhalo_posx[mass_filter_0][0]
+wl_halo_0 = (subhalo_posz[mass_filter_0][0]/(dl*1000)  * dz+ (z_0) + subhalo_vz[mass_filter_0][0]/c +1 )* lya
+halo_0_r = 2*subhalo_radhm[mass_filter_0][0]
+
+halo_0_dwl= subhalo_vmax[mass_filter_0][0]/c * lya
+
+#the width of slice in kpc/h
 y_pos = subhalo_posy[mass_filter_0][0]
+
+dy=35
+
+# extendthe bourandary a little bit
+wl_min = (1+z_0)*lya-5
+wl_max = (1+z_0 + 1000*dz)*lya+5
+
+y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
+y_ind_not_DLA = np.intersect1d(y_ind, ind_not_DLA)
+
+wl_ind = np.where((wavelength_all<wl_max) & (wavelength_all>wl_min))[0]
+
+#los that go through the halo
+x_ind_halo0_los = \
+np.where((f['ray_pos'][y_ind_not_DLA][:, 0] >= halo_0_x - halo_0_r) & (f['ray_pos'][y_ind_not_DLA][:, 0] <= halo_0_x + halo_0_r))[0]
+x_halo0_los = f['ray_pos'][y_ind_not_DLA][:, 0][x_ind_halo0_los]
+
+wl_halo_0_max = wl_halo_0 + subhalo_vmax[mass_filter_0][0]/c * lya
+wl_halo_0_min = wl_halo_0 - subhalo_vmax[mass_filter_0][0]/c * lya
+
+halo_0_dwl= subhalo_vmax[mass_filter_0][0]/c * lya
 
 #condition if for all subhalos in the plane of the slice
 #condition0 = (subhalo_posy - y_pos)**2  <= (35/2)**2
@@ -95,21 +134,11 @@ subhalo_rx= np.zeros(len(subhalo_posx[cond_all]))
 subhalo_rx = np.sqrt(4*subhalo_radhm[cond_all]**2 - (subhalo_posy[cond_all] - y_pos)**2)
 subhalo_dwl = subhalo_vmax[cond_all]/c * lya
 
-#the width of slice in kpc/h
-dy=35
-
-wl_min = (1+z_0)*lya
-wl_max = (1+z_0 + 1000*dz)*lya
-
-y_ind = np.where((f['ray_pos'][:,1]>=y_pos-dy/2)&(f['ray_pos'][:,1]<=y_pos+dy/2))[0]
-wl_ind = np.where((wavelength_all<wl_max) & (wavelength_all>wl_min))[0]
-
-#make the intensity plot for the slice
-flux_2d_fullwl= f['flux'][y_ind]
+flux_2d_fullwl= f['flux'][y_ind_not_DLA]
 flux_map = flux_2d_fullwl[:,wl_ind]
 
-ind_unique = np.unique(f['ray_pos'][:,0][y_ind], return_index=True)
-x_pos_unique = f['ray_pos'][:,0][y_ind][ind_unique[1]]
+ind_unique = np.unique(f['ray_pos'][:,0][y_ind_not_DLA], return_index=True)
+x_pos_unique = f['ray_pos'][:,0][y_ind_not_DLA][ind_unique[1]]
 
 flux_map_unique = flux_map[ind_unique[1]]
 
@@ -129,38 +158,17 @@ X_plot, Y_plot = np.meshgrid(x_grid[0:-1], ray_z[0:-1], indexing='ij')
 
 map_plot = f_map((X_plot,Y_plot))
 
-#convert from z position to wavelength
-z_halo = subhalo_posz/(dl*1000)  * dz+ (2.0)
-#wl_halo = (1+z_halo )* lya
-wl_halo = (1+z_halo + subhalo_vz/c )* lya
-
-# location of mass=12 halo
-halo_0_x = subhalo_posx[mass_filter_0][0]
-wl_halo_0 = (subhalo_posz[mass_filter_0][0](dl*1000)  * dz+ (z_0) + subhalo_vz[mass_filter_0][0]/c +1 )* lya
-halo_0_r = 2*subhalo_radhm[mass_filter_0][0]
-#los that go through the halo
-x_ind_halo0_los = \
-np.where((f['ray_pos'][y_ind][:, 0] >= halo_0_x - halo_0_r) & (f['ray_pos'][y_ind][:, 0] <= halo_0_x + halo_0_r))[0]
-x_halo0_los = f['ray_pos'][y_ind][:, 0][x_ind_halo0_los]
-
-wl_halo_0_max = wl_halo_0 + subhalo_vmax[mass_filter_0][0]/c * lya
-wl_halo_0_min = wl_halo_0 - subhalo_vmax[mass_filter_0][0]/c * lya
-
-#embed()
 gridspec = {'width_ratios': [1, 0.025]}
-fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(20,15),gridspec_kw=gridspec)
+fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(15,12),gridspec_kw=gridspec)
 
-c1 = axes2[0].pcolormesh(x_grid,ray_z , map_plot.T, cmap='Blues', vmin=0., vmax=1.)
+c1 = axes2[0].pcolormesh(x_grid,ray_z , map_plot.T, cmap='Blues', vmin=0., vmax=0.25)
 
-#axes2[0].scatter(subhalo_posx[cond_all],wl_halo[cond_all], marker='*', s=2, c='red')
+#axes2[0].scatter(subhalo_posx[cond_all],wl_halo_v0[cond_all], marker='*', s=2, c='yellow')
 axes2[0].errorbar(subhalo_posx[cond_all],wl_halo[cond_all],
                   xerr=subhalo_rx,yerr=subhalo_dwl, fmt='.', linewidth=1, capsize=1, c='red')
 
 #plot mass=12 halo
-axes2[0].scatter(np.atleast_1d(halo_0_x),np.atleast_1d(wl_halo_0), marker='o', s=2, c='orange')
-
-#for x_i in x_halo0_los:
-#    axes2[0].axvline(x=x_i, ls='--', color='yellow', lw=1.0, alpha=1.0)
+#axes2[0].scatter(np.atleast_1d(halo_0_x),np.atleast_1d(wl_halo_0_wl), marker='*', s=1, c='green')
 
 axes2[0].set_title('flux')
 # set the limits of the plot to the limits of the data
@@ -171,6 +179,9 @@ axes2[0].set_xlabel(r'X [ckpc/h]',fontsize=14)
 axes2[0].set_xlim(x_grid[0],x_grid[-1])
 axes2[0].set_ylim(ray_z[0],ray_z[-1])
 
+axes2[0].axhline(y=wl_min+5, ls='--', color='pink', lw=1.0, alpha=1.0)
+axes2[0].axhline(y=wl_max-5, ls='--', color='pink', lw=1.0, alpha=1.0)
+
 axes2[0].xaxis.set_minor_locator(AutoMinorLocator())
 axes2[0].yaxis.set_minor_locator(AutoMinorLocator())
 #embed()
@@ -178,16 +189,55 @@ axes2[0].yaxis.set_minor_locator(AutoMinorLocator())
 fig2.tight_layout()
 #plt.subplots_adjust(wspace=0.1, hspace=0)
 plt.show()
+#savename2 =('z2_all_halos_y'+str(int(y_pos))+'_mass9.05.pdf')
+#plt.savefig(savename2, dpi=100)
+#plt.close()
 
-savename2 =('z2_flux_halos.pdf')
-plt.savefig(savename2, dpi=100)
-plt.close()
+fig3, axes3 = plt.subplots(nrows=1, ncols=2, figsize=(15, 12), gridspec_kw=gridspec)
 
+c2 = axes3[0].pcolormesh(x_grid, ray_z, map_plot.T, cmap='Blues', vmin=0., vmax=1.)
 
-x_pos_sort_ind= np.argsort(f['x_pos'][y_ind][x_ind_halo0_los])
-halo_0_los_sort_arr = f['flux'][y_ind][x_pos_sort_ind]
+# axes2[0].scatter(subhalo_posx[cond_all],wl_halo[cond_all], marker='*', s=2, c='red')
+axes3[0].errorbar(subhalo_posx[cond_all], wl_halo[cond_all],
+                  xerr=subhalo_rx, yerr=subhalo_dwl, fmt='.', linewidth=1, capsize=1, c='red')
 
-for x in len(x_ind_halo0_los)[0:10]:
+x_ind_halo0_los = np.where((f['ray_pos'][y_ind_not_DLA][:, 0] >= halo_0_x - halo_0_r) & (
+            f['ray_pos'][y_ind_not_DLA][:, 0] <= halo_0_x + halo_0_r))[0]
+x_halo0_los = f['ray_pos'][y_ind_not_DLA][:, 0][x_ind_halo0_los]
+
+for x_i in x_halo0_los:
+    axes3[0].axvline(x=x_i, ls='--', color='yellow', lw=1.0, alpha=1.0)
+
+# plot mass=12 halo
+# axes2[0].scatter(np.atleast_1d(halo_0_x),np.atleast_1d(wl_halo_0_wl), marker='*', s=1, c='green')
+
+axes3[0].set_title('flux')
+# set the limits of the plot to the limits of the data
+plt.colorbar(c2, cax=axes3[1])
+
+axes3[0].set_ylabel(r'wavelength', fontsize=14)
+axes3[0].set_xlabel(r'X [ckpc/h]', fontsize=14)
+axes3[0].set_xlim(halo_0_x - 1000, halo_0_x + 1000)
+# axes3[0].set_ylim(wl_halo_0_wl-10,wl_halo_0_wl+10)
+axes3[0].set_ylim(ray_z[0], ray_z[-1])
+
+axes3[0].xaxis.set_minor_locator(AutoMinorLocator())
+axes3[0].yaxis.set_minor_locator(AutoMinorLocator())
+# embed()
+
+fig3.tight_layout()
+# plt.subplots_adjust(wspace=0.1, hspace=0)
+plt.show()
+# savename3 =('z2_zoomin_halos_y'+str(int(y_pos))+'_mass9.05.pdf')
+##\plt.savefig(savename2, dpi=100)
+# plt.close()
+
+# find the LOS that intersect with the big halo
+x_pos_sort_ind= np.argsort(f['ray_pos'][:,0][y_ind_not_DLA][x_ind_halo0_los])
+halo_0_los_sort_arr = f['flux'][y_ind_not_DLA][x_pos_sort_ind]
+
+#plot the halo LOS
+for x in np.arange(0,len(x_ind_halo0_los)):
     flux = halo_0_los_sort_arr[x]
     wave = wavelength_all
 
@@ -208,11 +258,11 @@ for x in len(x_ind_halo0_los)[0:10]:
     plt.savefig('halo_LOS_spec' + str(x) + '_plot_thinslice.pdf')
     plt.close()
 
-fitpdf = sorted([os.path.basename(x) for x in glob.glob('*LOS*.pdf')])
+fitpdf = sorted([os.path.basename(x) for x in glob.glob('*LOS*spec*.pdf')])
 from PyPDF2 import PdfMerger
 merger = PdfMerger()
 for pdf in fitpdf:
     merger.append(pdf)
     os.remove(pdf)
-merger.write('LOS_halo_z2_m12.pdf')
+merger.write('LOS_halo_z2_m12_masked.pdf')
 merger.close()
