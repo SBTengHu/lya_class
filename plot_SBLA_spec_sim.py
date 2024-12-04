@@ -4,13 +4,9 @@ from IPython import embed
 from astropy.cosmology import FlatLambdaCDM
 from astropy.io import fits, ascii
 import h5py
-from scipy.interpolate import interp2d,RegularGridInterpolator
+from scipy.interpolate import interp2d, RegularGridInterpolator
 from matplotlib.ticker import AutoMinorLocator,MaxNLocator
-import os
-import glob
 import astropy.table as tab
-from scipy.spatial import cKDTree
-
 
 #cosmological parameters
 c = 3e5  # km/s
@@ -62,29 +58,6 @@ all_indices = np.arange(len(f['flux']))
 not_DLA = np.isin(all_indices, f_DLA[0][0], invert=True)
 ind_not_DLA = all_indices[not_DLA]
 
-"""
-fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(13,5),gridspec_kw=gridspec)
-im1=axes[0].scatter(f['ray_pos'][:,0],f['ray_pos'][:,1],s=10,c=f['EW_HI_1215'],cmap='binary',rasterized=True,vmax=25)
-#axes[1].plot(f['ray_pos'][:,0][ix],f['ray_pos'][:,1][ix],'b*')
-
-#axes[0].scatter(f['ray_pos'][:,0][y_ind],f['ray_pos'][:,1][y_ind], marker='*', s=0.1, c='b')
-cax = axes[1]
-plt.colorbar(im1, cax=cax)
-
-cax.set_ylabel(r'EW$_{Ly\alpha}$ [$\AA$]',fontsize=15)
-
-axes[0].set_ylabel(r'Y [ckpc/h]',fontsize=14)
-axes[0].set_yticks([])
-axes[0].set_xlabel(r'X [ckpc/h]',fontsize=14)
-axes[0].set_xlim(0,35000)
-axes[0].set_ylim(0,35000)
-
-fig.tight_layout()
-#plt.subplots_adjust(wspace=0.1, hspace=0)
-savename ='sim_cut.pdf'
-plt.savefig(savename, dpi=100)
-plt.close()
-"""
 #convert from z position to wavelength
 z_halo = subhalo_posz/(dl*1000)  * dz+ (z_0)
 #wl_halo = (1+z_halo )* lya
@@ -114,6 +87,8 @@ y_ind_not_DLA = np.intersect1d(y_ind, ind_not_DLA)
 
 wl_ind = np.where((wavelength_all<wl_max) & (wavelength_all>wl_min))[0]
 
+ray_z = wavelength_all[wl_ind]
+
 #los that go through the halo
 x_ind_halo0_los = \
 np.where((f['ray_pos'][y_ind_not_DLA][:, 0] >= halo_0_x - halo_0_r) & (f['ray_pos'][y_ind_not_DLA][:, 0] <= halo_0_x + halo_0_r))[0]
@@ -136,8 +111,10 @@ subhalo_rx= np.zeros(len(subhalo_posx[cond_all]))
 subhalo_rx = np.sqrt(4*subhalo_radhm[cond_all]**2 - (subhalo_posy[cond_all] - y_pos)**2)
 subhalo_dwl = subhalo_vmax[cond_all]/c * lya
 
+# label all pixels in the halo range
+from scipy.spatial import cKDTree
 
-# Assuming f, subhalo_posx, subhalo_posy, subhalo_radhm, subhalo_vz, subhalo_vmax, z_halo, lya, c, and wavelength_all are already defined
+# Assuming f, subhalo_posx, subhalo_posy, subhalo_radhm, subhalo_vz, subhalo_vmax, z_halo, lya, c, and ray_z are already defined
 LOS_xy = np.array((f['ray_pos'][:, 0], f['ray_pos'][:, 1])).T
 subhalo_positions = np.array((subhalo_posx[condition2], subhalo_posy[condition2])).T
 subhalo_radii = 2 * subhalo_radhm[condition2]
@@ -149,31 +126,47 @@ subhalo_vmax_cond = subhalo_vmax[condition2]
 tree = cKDTree(LOS_xy)
 
 # Initialize lists to store results
-los_indices = []
-wavelength_indices = []
+los_halo_ind = []
+wl_halo_ind_all = []
+
+# Create the LOS_MASK array
+LOS_MASK = np.zeros((len(f['ray_pos']), len(ray_z)), dtype=np.float16)
 
 # Iterate over each halo
 for i, (pos, radius) in enumerate(zip(subhalo_positions, subhalo_radii)):
     # Find all LOS within the radius in the x-y plane
-    indices = tree.query_ball_point(pos, radius)
+    los_indices0 = tree.query_ball_point(pos, radius)
+
+    # Store the results
+    los_halo_ind.append(los_indices0)
 
     # Calculate the wavelength range for the halo in the z-direction
     halo_dwl_min = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c - subhalo_vmax_cond[i] / c) * lya
     halo_dwl_max = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c + subhalo_vmax_cond[i] / c) * lya
 
     # Find the wavelength indices that are covered by the halo
-    wl_indices = np.where((wavelength_all >= halo_dwl_min) & (wavelength_all <= halo_dwl_max))[0]
+    wl_indices0 = np.where((ray_z >= halo_dwl_min) & (ray_z <= halo_dwl_max))[0]
 
-    # Store the results
-    los_indices.append(indices)
-    wavelength_indices.append(wl_indices)
+    if i <= 30:
+        print(z_halo_cond[i], halo_dwl_min, halo_dwl_max, 2 * subhalo_radhm[condition2][i], len(wl_indices0),
+              len(los_indices0), los_indices0[0:10])
+
+    # the halo wl for each los that intersect with halo i
+    wl_los_halo_indices = []
+    for j in los_indices0:
+        # Store the results
+        wl_los_halo_indices.append(wl_indices0)
+        LOS_MASK[j, wl_indices0] = 1
+
+    wl_halo_ind_all.append(wl_los_halo_indices)
 
 # los_indices now contains the indices of LOS in the x-y plane for each halo
 # wavelength_indices contains the wavelength indices covered by each halo in the z-direction
 
+flux_lya = f['flux'][:, wl_ind]
 
-flux_2d_fullwl= f['flux'][y_ind_not_DLA]
-flux_map = flux_2d_fullwl[:,wl_ind]
+flux_2d_fullwl= flux_lya[y_ind_not_DLA]
+flux_map = flux_2d_fullwl
 
 ind_unique = np.unique(f['ray_pos'][:,0][y_ind_not_DLA], return_index=True)
 x_pos_unique = f['ray_pos'][:,0][y_ind_not_DLA][ind_unique[1]]
@@ -231,6 +224,41 @@ plt.show()
 #plt.savefig(savename2, dpi=100)
 #plt.close()
 
+gridspec = {'width_ratios': [1, 0.025]}
+fig2, axes2 = plt.subplots(nrows=1, ncols=2, figsize=(15,12),gridspec_kw=gridspec)
+
+c1 = axes2[0].pcolormesh(x_grid,ray_z , map_plot.T, cmap='Greys', vmin=0., vmax=1.00)
+
+axes2[0].scatter(subhalo_posx[cond_all],wl_halo_v0[cond_all], marker='*', s=2, c='yellow')
+axes2[0].errorbar(subhalo_posx[cond_all],wl_halo[cond_all],
+                  xerr=subhalo_rx,yerr=subhalo_dwl, fmt='.', linewidth=1, capsize=1, c='red')
+
+#plot mass=12 halo
+#axes2[0].scatter(np.atleast_1d(halo_0_x),np.atleast_1d(wl_halo_0_wl), marker='*', s=1, c='green')
+
+axes2[0].set_title('flux')
+# set the limits of the plot to the limits of the data
+plt.colorbar(c1, cax=axes2[1])
+
+axes2[0].set_ylabel(r'wavelength',fontsize=14)
+axes2[0].set_xlabel(r'X [ckpc/h]',fontsize=14)
+axes2[0].set_xlim(x_grid[0],x_grid[-1])
+axes2[0].set_ylim(ray_z[0],ray_z[-1])
+
+axes2[0].xaxis.set_minor_locator(AutoMinorLocator())
+axes2[0].yaxis.set_minor_locator(AutoMinorLocator())
+#embed()
+
+fig2.tight_layout()
+#plt.subplots_adjust(wspace=0.1, hspace=0)
+plt.show()
+#savename2 =('z2_all_halos_y'+str(int(y_pos))+'_mass9.05.pdf')
+#plt.savefig(savename2, dpi=100)
+#plt.close()
+
+halo_los_ind = np.where( ((f['ray_pos'][:,0]-halo_0_x)**2 + (f['ray_pos'][:,1]-y_pos)**2 <= halo_0_r**2) )[0]
+x_halo0_los = f['ray_pos'][y_ind_not_DLA][:,0][x_ind_halo0_los]
+
 fig3, axes3 = plt.subplots(nrows=1, ncols=2, figsize=(15, 12), gridspec_kw=gridspec)
 
 c2 = axes3[0].pcolormesh(x_grid, ray_z, map_plot.T, cmap='Blues', vmin=0., vmax=1.)
@@ -272,20 +300,28 @@ plt.show()
 
 # find the LOS that intersect with the big halo
 x_pos_sort_ind= np.argsort(f['ray_pos'][:,0][y_ind_not_DLA][x_ind_halo0_los])
-halo_0_los_sort_arr = f['flux'][y_ind_not_DLA][x_pos_sort_ind]
+halo_0_los_sort_arr = flux_lya[y_ind_not_DLA][x_pos_sort_ind]
 
-#plot the halo LOS
-for x in np.arange(0,len(x_ind_halo0_los)):
+# plot the halo LOS
+for x in np.arange(0, len(x_ind_halo0_los)):
     flux = halo_0_los_sort_arr[x]
-    wave = wavelength_all
+    wave = ray_z
+    mask = LOS_MASK[y_ind_not_DLA][x_ind_halo0_los][x]
 
     fig = plt.figure(figsize=(8, 4))
     ax = fig.add_subplot(111)
 
     ax.plot(wave, flux,
-            color='0.5', drawstyle='steps', zorder=1, lw=0.5)
+            color='0.5', drawstyle='steps', zorder=1, lw=1.0)
 
-    ax.axvspan(wl_halo_0_min, wl_halo_0_max, alpha=0.5, color='red')
+    ax.plot(wave, mask,
+            color='yellow', drawstyle='steps', zorder=1, lw=1.0)
+
+    ax.axvspan(wl_halo_0_min, wl_halo_0_max, alpha=1.0, color='red')
+
+    ax.annotate(f'LOS_xy: ({LOS_xy[0]:.2f}, {LOS_xy[1]:.2f})', xy=(0.15, 0.90), xycoords='axes fraction',
+                fontsize=10, color='black', ha='left', va='top')
+
 
     ax.set_ylabel('Transmission')
     ax.set_xlabel('$\\lambda / \\AA$')
@@ -293,14 +329,16 @@ for x in np.arange(0,len(x_ind_halo0_los)):
     ax.set_ylim(-0.1, 1.25)
     ax.set_xlim(ray_z[0], ray_z[-1])
 
-    plt.savefig('halo_LOS_spec' + str(x) + '_plot_thinslice.pdf')
+    plt.savefig('halo_LOS_spec' + str(x) + '_plot_masked.pdf')
     plt.close()
 
-fitpdf = sorted([os.path.basename(x) for x in glob.glob('*LOS*spec*.pdf')])
+import os
+import glob
+fitpdf = sorted([os.path.basename(x) for x in glob.glob('*LOS*spec*masked.pdf')])
 from PyPDF2 import PdfMerger
 merger = PdfMerger()
 for pdf in fitpdf:
     merger.append(pdf)
     os.remove(pdf)
-merger.write('LOS_halo_z2_m12_masked.pdf')
+merger.write('LOS_halo_z2_m12_all_masked.pdf')
 merger.close()
