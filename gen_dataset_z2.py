@@ -93,7 +93,10 @@ tree = cKDTree(LOS_xy)
 los_halo_ind = []
 wl_halo_ind_all = []
 
-# Iterate over each halo
+# Create the LOS_MASK array
+LOS_MASK = np.zeros((len(f['ray_pos']), len(ray_z)), dtype=np.float16)
+
+# Iterate over each halo# Iterate over each halo
 for i, (pos, radius) in enumerate(zip(subhalo_positions, subhalo_radii)):
     # Find all LOS within the radius in the x-y plane
     los_indices0 = tree.query_ball_point(pos, radius)
@@ -101,43 +104,32 @@ for i, (pos, radius) in enumerate(zip(subhalo_positions, subhalo_radii)):
     # Store the results
     los_halo_ind.append(los_indices0)
 
+    # Calculate the wavelength range for the halo in the z-direction
+    halo_dwl_min = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c - subhalo_vmax_cond[i] / c) * lya
+    halo_dwl_max = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c + subhalo_vmax_cond[i] / c) * lya
+
+    # Find the wavelength indices that are covered by the halo
+    wl_indices0 = np.where((ray_z >= halo_dwl_min) & (ray_z <= halo_dwl_max))[0]
+
+    # if i <= 30:
+    #   print(z_halo_cond[i],halo_dwl_min,halo_dwl_max,2*subhalo_radhm[condition2][i],len(wl_indices0), len(los_indices0),los_indices0[0:10])
+
+    # the halo wl for each los that intersect with halo i
     wl_los_halo_indices = []
     for j in los_indices0:
-        # Calculate the wavelength range for the halo in the z-direction
-        halo_dwl_min = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c - subhalo_vmax_cond[i] / c) * lya
-        halo_dwl_max = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c + subhalo_vmax_cond[i] / c) * lya
-
-        # Find the wavelength indices that are covered by the halo
-        wl_indices0 = np.where((ray_z >= halo_dwl_min) & (ray_z <= halo_dwl_max))[0]
-
         # Store the results
         wl_los_halo_indices.append(wl_indices0)
+        LOS_MASK[j, wl_indices0] = 1
 
     wl_halo_ind_all.append(wl_los_halo_indices)
-
-# los_indices now contains the indices of LOS in the x-y plane for each halo
-# wavelength_indices contains the wavelength indices covered by each halo in the z-direction
-
-# Create the LOS_MASK array
-LOS_MASK = np.zeros((len(f['ray_pos'][ind_not_DLA]), len(ray_z)), dtype=float)
-
-# Set the specified elements to 1
-for los, wl_list in zip(los_halo_ind, wl_halo_ind_all):
-    for l, wl in zip(los, wl_list):
-        LOS_MASK[l, wl] = 1
 
 # generate a dataset for ML
 flux_lya = f['flux'][[ind_not_DLA]][:, wl_ind]
 
 # Save flux_subset and LOS_MASK to an HDF5 file
 with h5py.File('SBLA_flux_z'+str(z_0)+'_spec'+str(len(flux_lya))+'.hdf5', 'w') as hf:
-    hf.create_dataset('flux_lya', data=flux_lya)
-    hf.create_dataset('LOS_MASK', data=LOS_MASK)
-    #restore the wavelength
+    hf.create_dataset('flux_lya', data=flux_lya[0:1100])
+    hf.create_dataset('LOS_MASK', data=LOS_MASK[0:1100])
     hf.create_dataset('wavelength_range', data=ray_z)
-print("Data saved to output.hdf5")
 
-# readin the data
-#with h5py.File('output.hdf5', 'r') as hf:
-#    flux_lya = hf['flux_lya'][:]
-#    LOS_MASK = hf['LOS_MASK'][:]
+print("Data saved to output.hdf5")
