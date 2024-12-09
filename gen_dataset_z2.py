@@ -128,8 +128,8 @@ flux_lya = f['flux'][[ind_not_DLA]][:, wl_ind]
 
 # Save flux_subset and LOS_MASK to an HDF5 file
 with h5py.File('SBLA_flux_z'+str(z_0)+'_spec'+str(len(flux_lya))+'.hdf5', 'w') as hf:
-    hf.create_dataset('flux_lya', data=flux_lya[0:1100])
-    hf.create_dataset('LOS_MASK', data=LOS_MASK[0:1100])
+    hf.create_dataset('flux_lya', data=flux_lya[0:110])
+    hf.create_dataset('LOS_MASK', data=LOS_MASK[0:110])
     hf.create_dataset('wavelength_range', data=ray_z)
 
 print("Data saved to output.hdf5")
