@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,9 +32,6 @@ dz = ((Lbox / h / ncell) * hubblez / c).value  # dz in redshift per cell
 dWL = (dz * lya)  # wl in AA per cell
 dl = Lbox / ncell  # dist per cell for raw skewer in Mpc/h
 
-# In[2]:
-
-
 f = h5py.File(
     '/data/forest/dsantos/DylanSims/Data/z2/KECK/Random/spectra_TNG50-1_z2.0_n2000d2-rndfullbox_KECK-HIRES-B14_HI_combined.hdf5',
     'r')
@@ -67,10 +59,6 @@ subhalo_vmax = np.array(f1['Subhalo_VMax'])  # Subhalo maximum velocity of the r
 # group_vrad = np.array(f['Group_RCrit200']) # Group virial radius
 # group_subhaloid = np.array(f['Subhalo_ID']) # Central Subhalo ID
 
-
-# In[3]:
-
-
 # Assuming subhalo_mass is already defined
 # Multiply subhalo_mass by the factor
 subhalo_mass_corrected = subhalo_mass * 1e10 / 0.6774
@@ -82,8 +70,9 @@ filtered_subhalo_mass = subhalo_mass_corrected[subhalo_mass_corrected > mass_thr
 # Calculate the logarithm of the filtered masses
 log_filtered_subhalo_mass = np.log10(filtered_subhalo_mass)
 
-# Define the bin edges with a size of 0.5 in log10
-bin_edges = np.arange(np.floor(log_filtered_subhalo_mass.min()), np.ceil(log_filtered_subhalo_mass.max()) + 0.5, 0.5)
+mass_bins=np.linspace(9, 13, 5)
+bin_edges = mass_bins
+#np.arange(np.floor(log_filtered_subhalo_mass.min()), np.ceil(log_filtered_subhalo_mass.max()) + 0.5, 0.5)
 
 # Create a figure and axes for plotting
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -99,8 +88,6 @@ ax.xaxis.set_minor_locator(AutoMinorLocator(2))
 
 plt.show()
 
-# In[4]:
-
 
 DLA_list = '/data/forest/dsantos/DylanSims/Data/z2/KECK/Random/Old_SpecBins/DLA_SBLA_HighRes/DLA_AllBins_Index.fits'
 f_DLA = tab.Table.read(DLA_list, hdu=1)
@@ -115,13 +102,10 @@ not_DLA_ind = np.where(~is_DLA)[0]
 # Efficiently access and transform only the necessary data from 'ray_pos'
 LOS_xy = np.vstack((f['ray_pos'][:, 0], f['ray_pos'][:, 1])).T
 
-
-
-
 # convert from z position to wavelength
 z_halo = subhalo_posz / (dl * 1000) * dz + (z_0)
 # wl_halo = (1+z_halo )* lya
-wl_halo = (1 + z_halo + subhalo_vz / c) * lya
+wl_halo = (1 + z_halo + (1+z_halo)* subhalo_vz / c) * lya
 
 # extendthe bourandary a little bit
 wl_min = (1 + z_0) * lya - 5
@@ -131,62 +115,64 @@ wl_ind = np.where((wavelength_all < wl_max) & (wavelength_all > wl_min))[0]
 
 ray_z = wavelength_all[wl_ind]
 
-
-for ibin in mass_bins[0:-1]:
-
-mass_cond = (np.log10(subhalo_mass * 1e10 / 0.6774) > 11.0) & (np.log10(subhalo_mass * 1e10 / 0.6774) < 11.5)
-
-subhalo_positions = np.array((subhalo_posx[mass_cond], subhalo_posy[mass_cond])).T
-subhalo_radii = 2 * subhalo_radhm[mass_cond]
-z_halo_cond = z_halo[mass_cond]
-subhalo_vz_cond = subhalo_vz[mass_cond]
-subhalo_vmax_cond = subhalo_vmax[mass_cond]
-
-
-# Create a KDTree for LOS_xy
-tree = cKDTree(LOS_xy)
-
 # Initialize lists to store results
 los_halo_ind = []
 wl_halo_ind_all = []
 flattened_los_halo_ind = np.array([])
+
 # Create the LOS_MASK array
 LOS_MASK = np.zeros((len(f['ray_pos']), len(ray_z)), dtype=np.float16)
 
+# Create a KDTree for LOS_xy
+tree = cKDTree(LOS_xy)
 
-# Iterate over each halo# Iterate over each halo
-for i, (pos, radius) in enumerate(zip(subhalo_positions, subhalo_radii)):
-    # Find all LOS within the radius in the x-y plane
-    los_indices0 = tree.query_ball_point(pos, radius)
+for ibin in np.arange(0,len(mass_bins)-1):
+    mass_cond = ((np.log10(subhalo_mass * 1e10 / 0.6774) > mass_bins[ibin])
+                 & (np.log10(subhalo_mass * 1e10 / 0.6774) < mass_bins[ibin+1]))
 
-    # Store the results
-    los_halo_ind.append(los_indices0)
-    flattened_los_halo_ind = np.concatenate(los_halo_ind)
+    subhalo_positions = np.array((subhalo_posx[mass_cond], subhalo_posy[mass_cond])).T
+    subhalo_radii = 2 * subhalo_radhm[mass_cond]
+    z_halo_cond = z_halo[mass_cond]
+    subhalo_vz_cond = subhalo_vz[mass_cond]
+    subhalo_vmax_cond = subhalo_vmax[mass_cond]
 
-    # Calculate the wavelength range for the halo in the z-direction
-    halo_dwl_min = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c - subhalo_vmax_cond[i] / c) * lya
-    halo_dwl_max = (1 + z_halo_cond[i] + subhalo_vz_cond[i] / c + subhalo_vmax_cond[i] / c) * lya
 
-    # Find the wavelength indices that are covered by the halo
-    wl_indices0 = np.where((ray_z >= halo_dwl_min) & (ray_z <= halo_dwl_max))[0]
+    # Iterate over each halo# Iterate over each halo
+    for j, (pos, radius) in enumerate(zip(subhalo_positions, subhalo_radii)):
+        # Find all LOS within the radius in the x-y plane
+        los_indices_j = tree.query_ball_point(pos, radius)
 
-    # if i <= 30:
-    #   print(z_halo_cond[i],halo_dwl_min,halo_dwl_max,2*subhalo_radhm[condition2][i],len(wl_indices0), len(los_indices0),los_indices0[0:10])
-
-    # the halo wl for each los that intersect with halo i
-    wl_los_halo_indices = []
-    for j in los_indices0:
         # Store the results
-        wl_los_halo_indices.append(wl_indices0)
-        LOS_MASK[j, wl_indices0] = 1
+        los_halo_ind.append(los_indices_j)
+        flattened_los_halo_ind = np.concatenate(los_halo_ind)
 
-    wl_halo_ind_all.append(wl_los_halo_indices)
+        # Calculate the wavelength range for the halo in the z-direction
+        # Calculate the wavelength range for the halo in the z-direction
+        halo_dwl_min = (1 + z_halo_cond[j] + (1 + z_halo_cond[i]) * subhalo_vz_cond[j]
+                        / c - (1 + z_halo_cond[i]) * subhalo_vmax_cond[j] / c) * lya
 
+        halo_dwl_max = (1 + z_halo_cond[j] + (1 + z_halo_cond[i]) * subhalo_vz_cond[j]
+                        / c + (1 + z_halo_cond[i]) * subhalo_vmax_cond[j] / c) * lya
+
+        # Find the wavelength indices that are covered by the halo
+        wl_indices_j = np.where((ray_z >= halo_dwl_min) & (ray_z <= halo_dwl_max))[0]
+
+        # if i <= 30:
+        #   print(z_halo_cond[i],halo_dwl_min,halo_dwl_max,2*subhalo_radhm[condition2][i],len(wl_indices0), len(los_indices0),los_indices0[0:10])
+
+        # the halo wl for each los that intersect with halo i
+        wl_los_halo_indices = []
+        for k in los_indices_j:
+            # Store the results
+            wl_los_halo_indices.append(wl_indices_j)
+            LOS_MASK[k, wl_indices_j] = (mass_bins[ibin]+mass_bins[ibin+1])/2
+
+        wl_halo_ind_all.append(wl_los_halo_indices)
 
 # los with halos but including DLA
 LOSwHalo_ind = np.int32(np.unique(flattened_los_halo_ind))
 
-# Find indices in not_DLA_ind that are not in flattened_los_halo_ind
+    # Find indices in not_DLA_ind that are not in flattened_los_halo_ind
 LOSHalo_notDLA_ind = np.intersect1d(not_DLA_ind, flattened_los_halo_ind)
 LOSnoHalo_notDLA_ind = np.setdiff1d(not_DLA_ind, flattened_los_halo_ind)
 
