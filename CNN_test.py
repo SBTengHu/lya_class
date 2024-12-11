@@ -56,16 +56,17 @@ else:
     dense1 = Dense(128, activation='relu', name="Dense_Shared")(flatten)
     dense1 = Dropout(0.5, name="Dropout")(dense1)
 
-    # Output layer for binary classification
-    output = Dense(sequence_length, activation='sigmoid', name='LOS_MASK_Output')(dense1)
+    # Output layer for regression
+    output = Dense(sequence_length, activation='linear', name='LOS_MASK_Output')(dense1)
 
     # Combine all into a single model
     model = Model(inputs=input_layer, outputs=output)
 
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=0.001),
-                  loss='binary_crossentropy',
-                  metrics=['accuracy'])
+                  loss='mean_squared_error',
+                  metrics=['mae'])
+
 
     # Define the callbacks for saving the model and logging the training history
     checkpoint = ModelCheckpoint(model_file, save_best_only=True, monitor='val_loss', mode='min')
