@@ -127,13 +127,13 @@ mass_filter_0 = (np.log10(subhalo_mass*1e10/0.6774) > 11.45) & (np.log10(subhalo
 np.sum(mass_filter_0)
 
 
-# In[6]:
+# In[ ]:
 
 
 for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 110]:#np.arange(0,np.sum(mass_filter_0)):
     print("halo ",i_halo)
     
-    halo_number=i_halo    
+    halo_number=i_halo     
     halo_0_x = subhalo_posx[mass_filter_0][halo_number]
     wl_halo_0 = ( (z_0) + subhalo_posz[mass_filter_0][halo_number]/(dl*1000)  * dz
                  + (1+z_halo[mass_filter_0][halo_number])*subhalo_vz[mass_filter_0][halo_number]/c +1 )* lya
@@ -266,10 +266,12 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     flux_map_unique_sort = flux_map_unique[ind_sort_unique]
     
     # rebin to new wavelength array
-    wl_rebin = wave_rebin(10, ray_z)[0]
-    print("res:", wave_rebin(10, ray_z)[1]," km/s")
-
+    wl_rebin = wave_rebin(50, ray_z)[0]
+    print("res:", wave_rebin(50, ray_z)[1]," km/s")
+    
     flux_rebin =  spectres.spectres(wl_rebin, ray_z, flux_map_unique_sort, fill=True, verbose=True)
+    d_arr_z_rebin= np.arange(len(flux_rebin)) * dl *1000 * len(ray_z)/len(flux_rebin)# in kpc/h
+    
     
     #map0=np.array(np.vstack(flux_map_unique))
     map0=np.array(np.vstack(flux_rebin))
@@ -307,7 +309,6 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     plt.colorbar(c2, cax=axes3[1])
     
     z_ind_plot = np.where((wl_rebin > np.max([wl_rebin[0],wl_halo_0-r_f_x*halo_0_dwl])) & (wl_rebin < np.min([wl_rebin[-1],wl_halo_0+r_f_x*halo_0_dwl])))
-    
     ray_z_plot2 = wl_rebin[z_ind_plot] 
     vel_plot = (ray_z_plot2-(ray_z_plot2[0]+ray_z_plot2[-1])/2)/wl_halo_0 * c # in km/s
     
@@ -323,7 +324,7 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     
     axes3[0].set_xlim( np.max([x_grid[0], halo_0_x-r_f_x*halo_0_r]), np.min([x_grid[-1], halo_0_x + r_f_x*halo_0_r]))
                       
-    N_x_ticks = np.ceil(8*halo_0_r/1000)
+    N_x_ticks = np.ceil(2*r_f_x*halo_0_r/1000)
     axes3[0].xaxis.set_major_locator(MaxNLocator(N_x_ticks))
     
     axes3[0].set_ylim(np.max([wl_rebin[0],wl_halo_0-2*halo_0_dwl]),np.min([wl_rebin[-1],wl_halo_0+2*halo_0_dwl]))
@@ -335,7 +336,7 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     #embed()
     #axes3[0].set_xlabel(r'X [ckpc/h]',fontsize=14)
     
-    dl_arr_plot = d_arr_z[z_ind_plot]-(d_arr_z[z_ind_plot][0]+d_arr_z[z_ind_plot][-1])/2
+    dl_arr_plot = d_arr_z_rebin[z_ind_plot]-(d_arr_z_rebin[z_ind_plot][0]+d_arr_z_rebin[z_ind_plot][-1])/2
     
     ax4 = axes3[0].twinx()
     ax4.yaxis.set_label_position("left")
@@ -344,20 +345,21 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     ax4.set_ylabel(r'Y [ckpc/h]',fontsize=14)
     #ax4.set_ylim(np.int32(d_arr_z[z_ind_plot])[0],np.int32(d_arr_z[z_ind_plot])[1])
     
-    N_z_dl = np.ceil((d_arr_z[z_ind_plot][-1] - d_arr_z[z_ind_plot][0]+d_arr_z[z_ind_plot][0])/2000)
+    N_z_dl = np.ceil((d_arr_z_rebin[z_ind_plot][-1] - d_arr_z_rebin[z_ind_plot][0]+d_arr_z_rebin[z_ind_plot][0])/1000)
     ax4.yaxis.set_major_locator(MaxNLocator(N_z_dl))
-    #ax4.yaxis.set_minor_locator(AutoMinorLocator())
+    ax4.yaxis.set_minor_locator(AutoMinorLocator())
     
     axes3[0].set_xticks([])
     ax5 = axes3[0].twiny()
     ax5.tick_params(top=False, labeltop=False, bottom=True, labelbottom=True)
-    x_axis_plot = np.linspace( -4*halo_0_r, 4*halo_0_r, len(x_grid))
+    x_axis_plot = np.linspace( -r_f_x*halo_0_r, r_f_x*halo_0_r, len(x_grid))
     ax5.set_xticks(np.int32(x_axis_plot))
     N_x_grid = 3
     ax5.xaxis.set_major_locator(MaxNLocator(N_x_grid))
     ax5.set_xlabel(r'X [ckpc/h]',fontsize=14)
     ax5.xaxis.set_label_position('bottom') 
-    
+    ax5.xaxis.set_minor_locator(AutoMinorLocator())
+    ax5.xaxis.tick_bottom()
     
     c2 = axes3[2].pcolormesh(x_grid,wl_rebin , map_plot.T, cmap='Blues', vmin=0., vmax=0.25)
     
@@ -379,7 +381,7 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     plt.colorbar(c2, cax=axes3[3])
     
     #axes3[2].set_ylabel(r'wavelength',fontsize=14)
-    axes3[2].set_xlim( np.max([x_grid[0], halo_0_x-4*halo_0_r]), np.min([x_grid[-1], halo_0_x + 4*halo_0_r]))
+    axes3[2].set_xlim( np.max([x_grid[0], halo_0_x-r_f_x*halo_0_r]), np.min([x_grid[-1], halo_0_x + r_f_x*halo_0_r]))
     axes3[2].xaxis.set_minor_locator(AutoMinorLocator())
     axes3[2].yaxis.set_minor_locator(AutoMinorLocator())
     
@@ -409,6 +411,7 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     ax42.set_ylabel(r'Y [ckpc/h]',fontsize=14)
     #ax4.set_ylim(np.int32(d_arr_z[z_ind_plot])[0],np.int32(d_arr_z[z_ind_plot])[1])
     ax42.yaxis.set_major_locator(MaxNLocator(N_z_dl))
+    ax42.yaxis.set_minor_locator(AutoMinorLocator())
     
     axes3[2].set_xticks([])
     ax52 = axes3[2].twiny()
@@ -417,6 +420,8 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     ax52.xaxis.set_major_locator(MaxNLocator(N_x_grid))
     ax52.set_xlabel(r'X [ckpc/h]',fontsize=14)
     ax52.xaxis.set_label_position('bottom') 
+    ax52.xaxis.set_minor_locator(AutoMinorLocator())
+    ax52.xaxis.tick_bottom()
     
     #embed()
     #fig3.legend(loc='upper right')
@@ -426,16 +431,5 @@ for i_halo in [4, 10, 20, 45, 46, 48, 59, 69, 71, 73, 76, 85, 87, 91, 100, 102, 
     #savename2 =('z2_zoomin_halos_y'+str(i_halo)+'_mass11.5.pdf')
     #plt.savefig(savename2, dpi=100)
     plt.close()
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
 
 
