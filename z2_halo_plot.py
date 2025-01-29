@@ -35,10 +35,6 @@ dz = ((Lbox / h / ncell) * hubblez / c).value # dz in redshift per cell
 dWL = (dz * lya)  # wl in AA per cell
 dl = Lbox / ncell  # dist per cell for raw skewer in Mpc/h
 
-
-# In[3]:
-
-
 #f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/SDSS/Random/spectra_TNG50-1_z2.0_n2000d2-rndfullbox_SDSS-BOSS_HI_combined.hdf5', 'r')
 f = h5py.File('/data/forest/dsantos/DylanSims/Data/z2/KECK/Random/spectra_TNG50-1_z2.0_n2000d2-rndfullbox_KECK-HIRES-B14_HI_combined.hdf5', 'r')
 wavelength_all = np.array(f['wave'])
